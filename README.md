@@ -1,5 +1,7 @@
 # port_checker
 
+Works well with **proxychains** for quick port identification when while **pivoting** ( That`s the main reason why i made the script )
+
 A lightweight Bash TCP port checker for quick internal security testing and reachability checks.
 
 The script uses `nc` for TCP connect checks and estimates service names based on common port mappings, similar to Nmap service labels. It does not perform raw packet scanning, UDP scanning, OS detection, or version fingerprinting.
