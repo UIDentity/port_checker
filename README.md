@@ -57,6 +57,7 @@ Targets provided directly in the command. Accepts IPs, hostnames, comma-separate
 ./port_checker.sh -t 192.168.1.1/24 -top100
 ./port_checker.sh -t 192.168.1.1-21 -dc
 ./port_checker.sh -t 192.168.1.1/24,10.10.10.1-10 -p 22,80,443
+./port_checker.sh -t 10.10.10.5 -p 22-44
 ```
 
 CIDR ranges expand to usable hosts when possible. For example, `192.168.1.1/24` expands to `192.168.1.1` through `192.168.1.254`.
@@ -87,10 +88,12 @@ dc01.local
 -p <ports>
 ```
 
-Custom comma-separated ports.
+Custom ports. Accepts single ports, comma-separated lists, and port ranges.
 
 ```bash
 ./port_checker.sh -t 10.10.10.5 -p 22,80,443,8080
+./port_checker.sh -t 10.10.10.5 -p 22-44
+./port_checker.sh -t 10.10.10.5 -p 22,80,443,8000-8100
 ```
 
 ```bash
@@ -143,6 +146,7 @@ Presets can be combined with custom ports:
 ./port_checker.sh -t 10.10.10.5 -dc -p 8080,8443
 ./port_checker.sh -f targets.txt -dc -top100 -p 47001
 ./port_checker.sh -f targets.txt -top1000 -p 5985,5986
+./port_checker.sh -f targets.txt -dc -p 8000-8100
 ```
 
 ## Scan Options
@@ -335,6 +339,18 @@ Scan custom ports and show only open results:
 
 ```bash
 ./port_checker.sh -t dc01.local -p 445,3389,5985 --open-only
+```
+
+Scan a port range:
+
+```bash
+./port_checker.sh -t 10.10.10.5 -p 22-44
+```
+
+Scan mixed single ports and ranges:
+
+```bash
+./port_checker.sh -t 10.10.10.5 -p 22,80,443,8000-8100
 ```
 
 Scan with faster timeout and a rate limit:
