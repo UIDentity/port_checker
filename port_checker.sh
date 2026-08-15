@@ -548,21 +548,13 @@ cleanup() {
 }
 
 show_progress() {
-  local current_host="$1"
-  local current_port="$2"
   local percent=0
 
   if [ "$total" -gt 0 ]; then
     percent=$(( scanned * 100 / total ))
   fi
 
-  if [ -n "$current_host" ] && [ -n "$current_port" ]; then
-    printf "\rScanned %d out of %d ports (%d%%) | Testing %s:%s" \
-      "$scanned" "$total" "$percent" "$current_host" "$current_port"
-  else
-    printf "\rScanned %d out of %d ports (%d%%)" \
-      "$scanned" "$total" "$percent"
-  fi
+  printf "\rScanned %d out of %d ports (%d%%)" "$scanned" "$total" "$percent"
 }
 
 trap cleanup INT TERM
@@ -575,7 +567,6 @@ for host in "${targets[@]}"; do
   print_and_log "$(printf "%-8s %-22s %s" "----" "-------" "-----")"
 
   for port in "${ports[@]}"; do
-    show_progress "$host" "$port"
     service="$(service_name "$port")"
 
     if nc -w "$timeout_sec" -z "$host" "$port" 2>/dev/null; then
