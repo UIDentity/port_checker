@@ -179,7 +179,10 @@ Target options:
 
 Port options:
   -p <ports>          Custom ports, comma-separated.
+                      Supports single ports and ranges.
                       Example: -p 22,80,443,8080
+                      Example: -p 22-44
+                      Example: -p 22,80,443,8000-8100
 
   -dc                 Adds common Domain Controller ports:
                       53,88,135,139,389,445,464,593,636,3268,3269,3389,5985
@@ -337,22 +340,52 @@ add_target() {
   done
 }
 
+add_port_once() {
+  local new_port="$1"
+
+  for existing_port in "${ports[@]}"; do
+    if [ "$existing_port" = "$new_port" ]; then
+      return
+    fi
+  done
+
+  ports+=("$new_port")
+}
+
 add_port() {
-  local item="$1" port
+  local item="$1"
+  local port start end current
+
   IFS=',' read -ra split_ports <<< "$item"
+
   for port in "${split_ports[@]}"; do
     port="${port//[[:space:]]/}"
+    [ -z "$port" ] && continue
 
-    if ! [[ "$port" =~ ^[0-9]+$ ]]; then
+    if [[ "$port" =~ ^[0-9]+-[0-9]+$ ]]; then
+      start="${port%-*}"
+      end="${port#*-}"
+
+      if [ "$start" -lt 1 ] || [ "$end" -gt 65535 ] || [ "$start" -gt "$end" ]; then
+        echo "Invalid port range: $port" >&2
+        continue
+      fi
+
+      for ((current=start; current<=end; current++)); do
+        add_port_once "$current"
+      done
+
+    elif [[ "$port" =~ ^[0-9]+$ ]]; then
+      if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        echo "Invalid port: $port" >&2
+        continue
+      fi
+
+      add_port_once "$port"
+
+    else
       echo "Invalid port: $port" >&2
-      continue
     fi
-
-    for existing_port in "${ports[@]}"; do
-      [ "$existing_port" = "$port" ] && continue 2
-    done
-
-    ports+=("$port")
   done
 }
 
@@ -515,13 +548,21 @@ cleanup() {
 }
 
 show_progress() {
+  local current_host="$1"
+  local current_port="$2"
   local percent=0
 
   if [ "$total" -gt 0 ]; then
     percent=$(( scanned * 100 / total ))
   fi
 
-  printf "\rScanned %d out of %d ports (%d%%)" "$scanned" "$total" "$percent"
+  if [ -n "$current_host" ] && [ -n "$current_port" ]; then
+    printf "\rScanned %d out of %d ports (%d%%) | Testing %s:%s" \
+      "$scanned" "$total" "$percent" "$current_host" "$current_port"
+  else
+    printf "\rScanned %d out of %d ports (%d%%)" \
+      "$scanned" "$total" "$percent"
+  fi
 }
 
 trap cleanup INT TERM
@@ -534,6 +575,7 @@ for host in "${targets[@]}"; do
   print_and_log "$(printf "%-8s %-22s %s" "----" "-------" "-----")"
 
   for port in "${ports[@]}"; do
+    show_progress "$host" "$port"
     service="$(service_name "$port")"
 
     if nc -w "$timeout_sec" -z "$host" "$port" 2>/dev/null; then
