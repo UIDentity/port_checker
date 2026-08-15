@@ -2,6 +2,8 @@
 
 Works well with **proxychains** for quick port identification when while **pivoting** ( That`s the main reason why i made the script )
 
+# TCP Port Checker
+
 A lightweight Bash TCP port checker for quick internal security testing and reachability checks.
 
 The script uses `nc` for TCP connect checks and estimates service names based on common port mappings, similar to Nmap service labels. It does not perform raw packet scanning, UDP scanning, OS detection, or version fingerprinting.
@@ -9,16 +11,21 @@ The script uses `nc` for TCP connect checks and estimates service names based on
 ## Features
 
 - Scan one target or multiple targets from the command line
+- Expand CIDR ranges such as `192.168.1.1/24`
+- Expand last-octet ranges such as `192.168.1.1-21`
 - Scan targets from a file
 - Use custom port lists
 - Use a Domain Controller port preset with `-dc`
 - Use an Nmap-style top 100 TCP ports preset with `-top100`
+- Use a hardcoded Nmap-style top 1000 TCP ports preset with `-top1000`
+- Scan all TCP ports from 1 to 65535 with `-all`
 - Show only open ports with `--open-only`
-- Automatically show only open ports when using `-top100`
+- Automatically show only open ports when using `-top100`, `-top1000`, or `-all`
 - Mark higher-value open services with `*service*`
 - Display live scan progress on a single updating line
 - Stop cleanly on `Ctrl+C`
 - Configure timeout per port
+- Configure connection hold time for tunnel/sshuttle scenarios
 - Configure approximate scan rate
 - Write per-target open-port files
 - Write the full scan output to `result.txt`
@@ -42,12 +49,19 @@ The script uses `nc` for TCP connect checks and estimates service names based on
 -t <targets>
 ```
 
-Targets provided directly in the command. Accepts one IP/host or a comma-separated list.
+Targets provided directly in the command. Accepts IPs, hostnames, comma-separated lists, CIDR ranges, and last-octet ranges.
 
 ```bash
 ./port_checker.sh -t 10.10.10.5 -dc
 ./port_checker.sh -t 10.10.10.5,10.10.10.6 -top100
+./port_checker.sh -t 192.168.1.1/24 -top100
+./port_checker.sh -t 192.168.1.1-21 -dc
+./port_checker.sh -t 192.168.1.1/24,10.10.10.1-10 -p 22,80,443
 ```
+
+CIDR ranges expand to usable hosts when possible. For example, `192.168.1.1/24` expands to `192.168.1.1` through `192.168.1.254`.
+
+Last-octet ranges keep the first three octets and expand only the final octet. For example, `192.168.1.1-21` expands to `192.168.1.1` through `192.168.1.21`.
 
 ```bash
 -f <file>
@@ -103,11 +117,32 @@ Adds an Nmap-style top 100 TCP port list. When `-top100` is used, only open port
 ./port_checker.sh -f targets.txt -top100
 ```
 
+```bash
+-top1000
+```
+
+Adds a hardcoded Nmap-style top 1000 TCP port list. When `-top1000` is used, only open ports are shown by default.
+
+```bash
+./port_checker.sh -f targets.txt -top1000
+```
+
+```bash
+-all
+```
+
+Adds all TCP ports from `1` to `65535`. When `-all` is used, only open ports are shown by default.
+
+```bash
+./port_checker.sh -t 10.10.10.5 -all
+```
+
 Presets can be combined with custom ports:
 
 ```bash
 ./port_checker.sh -t 10.10.10.5 -dc -p 8080,8443
 ./port_checker.sh -f targets.txt -dc -top100 -p 47001
+./port_checker.sh -f targets.txt -top1000 -p 5985,5986
 ```
 
 ## Scan Options
@@ -128,6 +163,26 @@ Example:
 
 ```bash
 ./port_checker.sh -t 10.10.10.5 -top100 -w 1
+```
+
+```bash
+--hold <seconds>
+```
+
+Keep the TCP connection alive for this long before deciding it is open.
+
+Default:
+
+```text
+0.4
+```
+
+This is useful when scanning through tunnel tools such as `sshuttle`, where a simple `nc -z` style check may incorrectly report closed ports as open because the tunnel accepts the connection and then closes it immediately.
+
+Example:
+
+```bash
+./port_checker.sh -t 10.10.10.5 -top100 --hold 0.5
 ```
 
 ```bash
@@ -246,6 +301,30 @@ Scan the top 100 TCP ports on multiple targets:
 ./port_checker.sh -t 10.10.10.5,10.10.10.6 -top100
 ```
 
+Scan the top 1000 TCP ports:
+
+```bash
+./port_checker.sh -t 10.10.10.5 -top1000
+```
+
+Scan all TCP ports:
+
+```bash
+./port_checker.sh -t 10.10.10.5 -all -w 1
+```
+
+Scan a CIDR range:
+
+```bash
+./port_checker.sh -t 192.168.1.1/24 -top100
+```
+
+Scan a last-octet range:
+
+```bash
+./port_checker.sh -t 192.168.1.1-21 -dc
+```
+
 Scan targets from a file and save results:
 
 ```bash
@@ -262,6 +341,12 @@ Scan with faster timeout and a rate limit:
 
 ```bash
 ./port_checker.sh -f targets.txt -top100 -w 1 -r 20
+```
+
+Scan through an `sshuttle` route with a longer hold check:
+
+```bash
+./port_checker.sh -t 10.10.10.5 -top100 --hold 0.8
 ```
 
 ## Notes
